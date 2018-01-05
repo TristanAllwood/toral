@@ -15,13 +15,9 @@ main = do
 
 mainLoop :: AppState -> Vty -> IO ()
 mainLoop s vty = do
-
-  let line0 = string (defAttr `withForeColor` green) "first line"
-      line1 = string (defAttr `withBackColor` blue) "second line"
-      img = line0 <-> line1
-      pic = picForImage img
-
+  let pic = picForImage (renderState s)
   update vty pic
   e <- nextEvent vty
-  shutdown vty
-  print ("Last event was: " ++ show e)
+  case e of
+    EvKey KEsc [] -> shutdown vty
+    _ -> mainLoop (handleEvent e s) vty

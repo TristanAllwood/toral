@@ -6,7 +6,14 @@ module Lib
     , AppState
     , initAppState
     , Action(..)
+
+    , renderState
+    , handleEvent
+
     ) where
+
+import qualified Graphics.Vty as V
+import Graphics.Vty (Event, Image, (<->))
 
 import Heap.Heap
 
@@ -33,6 +40,15 @@ initAppState
 
 initProgramState :: forall s . ProgramState s
 initProgramState = ProgramState { commands = [] }
+
+renderState :: AppState -> Image
+renderState _ = line0 <-> line1
+  where
+    line0 = V.string (V.defAttr `V.withForeColor` V.green) "first line"
+    line1 = V.string (V.defAttr `V.withBackColor` V.blue) "second line"
+
+handleEvent :: Event -> AppState -> AppState
+handleEvent _ = id
 
 data Action (id :: * -> *)
   = CreateFunction (id Function)
