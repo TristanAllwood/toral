@@ -77,8 +77,8 @@ newHeap w = H w V.empty []
 runNewHeap :: (forall h . HeapM h (w h)) -> Heap w
 runNewHeap = runHeap' V.empty []
 
-viewHeap :: forall w a . Heap w -> (forall h . w h -> (forall v . Ref h v -> v) -> a) -> a
-viewHeap (H w v _) f = f (unsafeCoerce w) grab
+viewHeap :: forall w a . Heap w -> (forall h . (forall v . Ref h v -> v) -> w h -> a) -> a
+viewHeap (H w v _) f = f grab (unsafeCoerce w)    {- TODO: pretttty sure we can get rid of usc and the forall h on grab -}
   where
     grab :: forall h v . Ref h v -> v
     grab (Ref x) = case unsafePerformIO (deRefWeak (v V.! x)) of
@@ -111,7 +111,7 @@ newRef :: a -> HeapM h (Ref h a)
 newRef !v = HeapM $ \dh@(DH mvRef _) -> do
   cellAddr <- claimNextCell dh
   let newRef = Ref cellAddr
-  writeRef' cellAddr v mvRef
+  writeRef' newRef cellAddr v mvRef
   return newRef
 
 
@@ -127,7 +127,7 @@ readRef (Ref x) = HeapM readRef'
       return (unsafeCoerce val)
 
 writeRef :: Ref h a -> a -> HeapM h ()
-writeRef (Ref x)       v = HeapM $ \(DH mvRef _) -> writeRef' x v mvRef
+writeRef r@(Ref x)       v = HeapM $ \(DH mvRef _) -> writeRef' r x v mvRef
 writeRef (Focused p r) v = modifyRefM r (return . (p .~ v))
 
 modifyRefM :: Ref h a -> (a -> HeapM h a) -> HeapM h ()
@@ -165,8 +165,8 @@ freeSpaces mv = catMaybes <$> mapM checkOne [0..(MV.length mv - 1)]
         then return (Just x)
         else return Nothing
 
-writeRef' :: Int -> a -> STRef h (MVector h (Weak Any)) -> ST h ()
-writeRef' x v mvRef = do
+writeRef' :: Ref h a -> Int -> a -> STRef h (MVector h (Weak Any)) -> ST h ()
+writeRef' !newRef x v mvRef = do
   wkPtr <- unsafeIOToST (mkWeak newRef (Any v) Nothing)
   mv <- readSTRef mvRef
   MV.write mv x wkPtr
